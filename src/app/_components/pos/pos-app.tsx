@@ -1340,14 +1340,26 @@ function CustomDialog(props: {
   if (!props.open) return null;
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4">
-      <div className="w-full max-w-md rounded-[18px] bg-white p-5 shadow-[0_24px_70px_rgba(20,23,31,0.18)]">
+      <div className="w-full max-w-lg rounded-[18px] bg-white p-5 shadow-[0_24px_70px_rgba(20,23,31,0.18)]">
         <h2 className="text-lg font-bold">Custom item</h2>
         <div className="mt-4 grid gap-3">
           <input className="input-field" placeholder="Name or service" value={props.name} onChange={(event) => props.onName(event.target.value)} />
           <input className="input-field" placeholder="Category" value={props.category} onChange={(event) => props.onCategory(event.target.value)} />
           <input className="input-field" type="number" min="0.01" step="0.01" placeholder="Price" value={props.price} onChange={(event) => props.onPrice(event.target.value)} />
-          <input className="input-field" type="number" min="1" step="1" value={props.quantity} onChange={(event) => props.onQuantity(Math.max(1, Number(event.target.value || 1)))} />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid gap-2">
+            <label className="text-xs font-medium text-text-secondary">Pages / quantity</label>
+            <input
+              className="input-field font-mono text-lg tabular-nums"
+              type="number"
+              min="1"
+              step="1"
+              inputMode="numeric"
+              value={props.quantity}
+              onChange={(event) => props.onQuantity(Math.max(1, Number(event.target.value || 1)))}
+            />
+            <p className="text-xs leading-5 text-text-secondary">Type the full page count directly, such as 500 or 1200.</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 pt-1">
             <button className="secondary-btn" onClick={props.onClose}>Cancel</button>
             <button className="primary-btn" onClick={props.onAdd}>Add</button>
           </div>
