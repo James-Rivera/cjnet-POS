@@ -1025,7 +1025,18 @@ function CartLine({ item, onCart }: { item: CartItem; onCart: (updater: (current
           <button type="button" className="qty-btn" onClick={() => onCart((current) => current.map((cartItem) => (cartItem.id === item.id ? { ...cartItem, quantity: Math.max(1, cartItem.quantity - 1) } : cartItem)))}>
             -
           </button>
-          <span className="w-8 text-center text-sm font-bold">{item.quantity}</span>
+          <input
+            className="qty-input"
+            type="number"
+            min="1"
+            step="1"
+            inputMode="numeric"
+            value={item.quantity}
+            onChange={(event) => {
+              const value = Math.max(1, Number(event.target.value || 1));
+              onCart((current) => current.map((cartItem) => (cartItem.id === item.id ? { ...cartItem, quantity: value } : cartItem)));
+            }}
+          />
           <button type="button" className="qty-btn" onClick={() => onCart((current) => current.map((cartItem) => (cartItem.id === item.id ? { ...cartItem, quantity: cartItem.quantity + 1 } : cartItem)))}>
             +
           </button>

@@ -357,6 +357,26 @@ textarea {
   box-shadow: 0 0 0 3px rgba(244, 212, 0, 0.14);
 }
 
+.qty-input {
+  width: 5.5rem;
+  min-height: 2.25rem;
+  border-radius: 0.85rem;
+  border: 1px solid rgba(23, 23, 23, 0.12);
+  background: #fff;
+  padding: 0.35rem 0.55rem;
+  color: var(--foreground);
+  text-align: center;
+  font-size: 0.95rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.qty-input:focus-visible {
+  outline: none;
+  border-color: rgba(244, 212, 0, 0.7);
+  box-shadow: 0 0 0 3px rgba(244, 212, 0, 0.14);
+}
+
 .category-pill-active,
 .cash-pill-active {
   border-color: rgba(244, 191, 0, 0.55);
