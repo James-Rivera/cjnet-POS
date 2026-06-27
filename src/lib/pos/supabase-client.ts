@@ -1,16 +1,10 @@
-import { createBrowserClient } from "@supabase/ssr";
+import { createClient as createBrowserSupabaseClient } from "@/utils/supabase/client";
+import { getSupabaseConfig } from "@/utils/supabase/env";
 
 export function hasSupabaseConfig() {
-  return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY);
+  return getSupabaseConfig().hasConfig;
 }
 
 export function createSupabaseBrowserClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
-  if (!url || !anonKey) {
-    return null;
-  }
-
-  return createBrowserClient(url, anonKey);
+  return createBrowserSupabaseClient();
 }

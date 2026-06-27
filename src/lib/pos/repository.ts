@@ -306,12 +306,20 @@ export class PosRepository {
         .select("*")
         .single();
       if (result.error) throw result.error;
-      const priceResult = await this.supabase.from("price_settings").insert({
-        service_id: service.id,
-        price: service.price,
-        is_custom_price: Boolean(service.isCustomPrice || service.price <= 0),
-        created_by: userId,
-      });
+      const priceResult = await this.supabase
+        .from("price_settings")
+        .upsert(
+          {
+            service_id: service.id,
+            price: service.price,
+            is_custom_price: Boolean(service.isCustomPrice || service.price <= 0),
+            created_by: userId,
+            effective_from: new Date().toISOString(),
+          },
+          { onConflict: "service_id" },
+        )
+        .select("*")
+        .single();
       if (priceResult.error) throw priceResult.error;
       return toService(result.data);
     }

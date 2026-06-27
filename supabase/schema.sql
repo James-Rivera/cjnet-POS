@@ -121,6 +121,7 @@ create index if not exists idx_expenses_date on public.expenses(expense_date);
 create index if not exists idx_services_category on public.services(category);
 create index if not exists idx_services_category_id on public.services(category_id);
 create index if not exists idx_price_settings_service_id on public.price_settings(service_id);
+create unique index if not exists idx_price_settings_service_id_unique on public.price_settings(service_id);
 
 create or replace function public.touch_updated_at()
 returns trigger
