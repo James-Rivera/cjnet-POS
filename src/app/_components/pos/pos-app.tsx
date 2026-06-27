@@ -546,7 +546,7 @@ export function PosApp() {
 
   return (
     <main className="app-shell">
-      <section className="mx-auto flex w-full max-w-[1440px] flex-col gap-4">
+      <section className="mx-auto flex w-full max-w-[1440px] flex-col gap-4 min-w-0">
         <header className="rounded-[1.35rem] border border-surface-border bg-white px-4 py-3 shadow-[var(--shadow-soft)]">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex flex-wrap items-center gap-3">
@@ -895,8 +895,8 @@ function RegisterView(props: {
   return (
     <section>
       <h1 className="mb-4 text-2xl font-bold text-foreground">Register</h1>
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_390px]">
-        <section className="section-card rounded-[18px] p-6">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_clamp(340px,28vw,390px)] items-start">
+        <section className="section-card min-w-0 rounded-[18px] p-6">
           <div className="mb-4 flex items-center justify-between gap-4">
             <h2 className="text-base font-bold">Services</h2>
             <button type="button" onClick={props.onCustom} className="secondary-btn !py-3">
@@ -923,14 +923,14 @@ function RegisterView(props: {
             ))}
           </div>
 
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(150px,1fr))] gap-3">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(160px,1fr))] gap-3">
             {props.filteredServices.map((service) => (
               <ServiceCard key={service.id} service={service} onClick={() => props.onServiceClick(service)} />
             ))}
           </div>
         </section>
 
-        <aside className="checkout-panel section-card sticky top-4 flex max-h-[calc(100vh-32px)] min-h-[640px] flex-col rounded-[18px] p-6 max-lg:static max-lg:max-h-none">
+        <aside className="checkout-panel section-card sticky top-4 flex max-h-[calc(100vh-32px)] min-h-[640px] min-w-0 flex-col rounded-[18px] p-6 max-xl:static max-xl:max-h-none">
           <div className="receipt-header flex items-start justify-between gap-4">
             <div>
               <h2 className="text-base font-bold">Current Sale</h2>
@@ -941,7 +941,7 @@ function RegisterView(props: {
             </button>
           </div>
 
-          <div className={props.cart.length ? "receipt-list mt-4 grid gap-3 overflow-auto pr-1" : "receipt-empty mt-4 grid min-h-44 place-items-center rounded-2xl border-2 border-dashed border-[rgba(23,23,23,0.12)] bg-white/70 p-6 text-center text-sm text-text-secondary"}>
+          <div className={props.cart.length ? "receipt-list mt-4 grid gap-3 overflow-auto pr-1" : "receipt-empty mt-4 grid place-items-center rounded-2xl border-2 border-dashed border-[rgba(23,23,23,0.12)] bg-white/70 p-6 text-center text-sm text-text-secondary"}>
             {props.cart.length ? (
               props.cart.map((item) => <CartLine key={item.id} item={item} onCart={props.onCart} />)
             ) : (

@@ -78,6 +78,7 @@ textarea {
 .app-shell {
   min-height: 100vh;
   padding: 1.25rem 1rem 2rem;
+  overflow-x: clip;
 }
 
 .page-wrap {
@@ -316,6 +317,52 @@ textarea {
   padding: 0.85rem;
   text-align: left;
   box-shadow: 0 1px 0 rgba(23, 23, 23, 0.03);
+}
+
+.checkout-panel {
+  min-width: 0;
+  overflow: hidden;
+}
+
+.receipt-list {
+  min-height: 0;
+  flex: 1 1 auto;
+}
+
+.receipt-empty {
+  min-height: 11rem;
+}
+
+.price-row {
+  min-width: 0;
+}
+
+.qty-btn {
+  display: inline-flex;
+  min-height: 2rem;
+  min-width: 2rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  border: 1px solid rgba(23, 23, 23, 0.12);
+  background: #fff;
+  color: var(--foreground);
+  font-weight: 700;
+}
+
+.qty-btn:hover,
+.qty-btn:focus-visible {
+  border-color: rgba(244, 212, 0, 0.7);
+  background: #fffbed;
+  box-shadow: 0 0 0 3px rgba(244, 212, 0, 0.14);
+}
+
+.category-pill-active,
+.cash-pill-active {
+  border-color: rgba(244, 191, 0, 0.55);
+  background: #fff5c4;
+  color: var(--foreground);
+  box-shadow: 0 0 0 3px rgba(255, 212, 0, 0.12);
 }
 
 .service-card:hover,
