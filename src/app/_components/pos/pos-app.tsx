@@ -250,23 +250,25 @@ export function PosApp() {
   useEffect(() => {
     if (!supabase) return;
 
+    const client = supabase;
+
     let cancelled = false;
 
     async function loadAuth() {
-      const { data: authData, error: authError } = await supabase.auth.getUser();
+      const { data: authData, error: authError } = await client.auth.getUser();
       if (authError || !authData.user) {
         router.replace("/login");
         return;
       }
 
-      const { data: profile, error: profileError } = await supabase
+      const { data: profile, error: profileError } = await client
         .from("profiles")
         .select("full_name, role, status")
         .eq("id", authData.user.id)
         .single();
 
       if (profileError || !profile || profile.status === "disabled") {
-        await supabase.auth.signOut();
+        await client.auth.signOut();
         router.replace("/login?error=access_denied");
         return;
       }
