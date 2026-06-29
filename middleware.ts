@@ -3,7 +3,12 @@ import { createClient } from "@/utils/supabase/middleware";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const isStatic = pathname.startsWith("/_next") || pathname.startsWith("/icons") || pathname === "/favicon.ico" || pathname === "/logo.png";
+  const isStatic =
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/icons") ||
+    pathname === "/favicon.ico" ||
+    pathname === "/logo.png" ||
+    pathname === "/cjnet-mark.png";
   if (isStatic) {
     return NextResponse.next();
   }
@@ -40,5 +45,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+  matcher: ["/((?!_next/static|_next/image|favicon.ico|logo.png|cjnet-mark.png|icons/).*)"],
 };

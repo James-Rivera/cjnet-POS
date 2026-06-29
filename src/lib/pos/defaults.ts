@@ -10,9 +10,10 @@ export const DEFAULT_SERVICES: Service[] = [
   { id: "print-color-long", name: "Colored print", category: "Printing", optionLabel: "Long", price: 15, sortOrder: 70 },
   { id: "print-color-a4", name: "Colored print", category: "Printing", optionLabel: "A4", price: 15, sortOrder: 80 },
   { id: "gov-custom", name: "Government service", category: "Online Services", optionLabel: "Custom price", price: 0, isCustomPrice: true, sortOrder: 90 },
-  { id: "nbi-custom", name: "NBI assistance", category: "Online Services", optionLabel: "Custom price", price: 0, isCustomPrice: true, sortOrder: 100 },
+  { id: "nbi-custom", name: "NBI clearance", category: "Online Services", optionLabel: "NBI", price: 250, isCustomPrice: false, groupName: "NBI", baseFee: 160, serviceFee: 90, sortOrder: 100 },
   { id: "police-clearance-custom", name: "Police clearance", category: "Online Services", optionLabel: "Custom price", price: 0, isCustomPrice: true, sortOrder: 110 },
   { id: "psa-custom", name: "PSA assistance", category: "Online Services", optionLabel: "Custom price", price: 0, isCustomPrice: true, sortOrder: 120 },
-  { id: "laminating-custom", name: "Laminating", category: "Finishing", optionLabel: "Custom price", price: 0, isCustomPrice: true, sortOrder: 130 },
-  { id: "misc-custom", name: "Other shop service", category: "Custom", optionLabel: "Custom price", price: 0, isCustomPrice: true, sortOrder: 140 },
+  { id: "gcash-cash-in", name: "GCash", category: "GCash", optionLabel: "Cash in / Cash out", price: 0, isCustomPrice: true, groupName: "GCash", sortOrder: 130 },
+  { id: "laminating-custom", name: "Laminating", category: "Finishing", optionLabel: "Custom price", price: 0, isCustomPrice: true, sortOrder: 140 },
+  { id: "misc-custom", name: "Other shop service", category: "Custom", optionLabel: "Custom price", price: 0, isCustomPrice: true, sortOrder: 150 },
 ];

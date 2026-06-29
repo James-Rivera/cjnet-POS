@@ -32,10 +32,30 @@ export function inRange(date: string, range: DateRange) {
   return date >= range.from && date <= range.to;
 }
 
+function itemPassThrough(item: Sale["items"][number]) {
+  return item.passThroughFee ?? item.baseFee ?? 0;
+}
+
+function itemRevenue(item: Sale["items"][number]) {
+  const passThrough = itemPassThrough(item);
+  if (passThrough > 0) {
+    return item.revenueAmount && item.revenueAmount > 0 ? item.revenueAmount : Math.max(item.lineTotal - passThrough, 0);
+  }
+  return item.revenueAmount && item.revenueAmount > 0 ? item.revenueAmount : item.lineTotal;
+}
+
 export function buildReport(sales: Sale[], expenses: Expense[], range: DateRange): ReportSummary {
-  const rangeSales = sales.filter((sale) => inRange(sale.date, range));
-  const rangeExpenses = expenses.filter((expense) => inRange(expense.date, range));
+  const rangeSales = sales.filter((sale) => sale.status !== "voided" && inRange(sale.date, range));
+  const rangeExpenses = expenses.filter((expense) => expense.status !== "voided" && inRange(expense.date, range));
   const grossSales = rangeSales.reduce((sum, sale) => sum + sale.total, 0);
+  const passThroughFees = rangeSales.reduce(
+    (sum, sale) => sum + sale.items.reduce((itemSum, item) => itemSum + itemPassThrough(item), 0),
+    0,
+  );
+  const serviceRevenue = rangeSales.reduce(
+    (sum, sale) => sum + (sale.items.length ? sale.items.reduce((itemSum, item) => itemSum + itemRevenue(item), 0) : sale.total),
+    0,
+  );
   const expenseTotal = rangeExpenses.reduce((sum, expense) => sum + expense.amount, 0);
   const serviceMap = new Map<string, { quantity: number; total: number }>();
   const expenseMap = new Map<string, number>();
@@ -56,8 +76,10 @@ export function buildReport(sales: Sale[], expenses: Expense[], range: DateRange
 
   return {
     grossSales,
+    passThroughFees,
+    serviceRevenue,
     expenses: expenseTotal,
-    netIncome: grossSales - expenseTotal,
+    netIncome: serviceRevenue - expenseTotal,
     transactions: rangeSales.length,
     topServices: [...serviceMap.entries()]
       .map(([name, value]) => ({ name, ...value }))

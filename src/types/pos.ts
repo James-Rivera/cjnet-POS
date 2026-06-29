@@ -5,6 +5,10 @@ export type Service = {
   optionLabel: string;
   price: number;
   isCustomPrice?: boolean;
+  groupName?: string | null;
+  requiresTracking?: boolean;
+  baseFee?: number;
+  serviceFee?: number;
   sortOrder?: number;
   isActive?: boolean;
 };
@@ -17,6 +21,12 @@ export type CartItem = {
   optionLabel: string;
   price: number;
   quantity: number;
+  requiresTracking?: boolean;
+  baseFee?: number;
+  serviceFee?: number;
+  passThroughFee?: number;
+  revenueAmount?: number;
+  pricingBreakdown?: PricingBreakdown | null;
 };
 
 export type SaleItem = {
@@ -29,6 +39,11 @@ export type SaleItem = {
   quantity: number;
   unitPrice: number;
   lineTotal: number;
+  baseFee?: number;
+  serviceFee?: number;
+  passThroughFee?: number;
+  revenueAmount?: number;
+  pricingBreakdown?: PricingBreakdown | null;
 };
 
 export type Sale = {
@@ -44,6 +59,11 @@ export type Sale = {
   changeDue: number;
   items: SaleItem[];
   cashierId?: string | null;
+  status?: "completed" | "voided";
+  needsFollowUp?: boolean;
+  voidedAt?: string | null;
+  voidedBy?: string | null;
+  voidReason?: string | null;
 };
 
 export type Expense = {
@@ -54,6 +74,10 @@ export type Expense = {
   amount: number;
   createdAt: string;
   createdBy?: string | null;
+  status?: "active" | "voided";
+  voidedAt?: string | null;
+  voidedBy?: string | null;
+  voidReason?: string | null;
 };
 
 export type Customer = {
@@ -66,7 +90,7 @@ export type Customer = {
 export type CashierUser = {
   id: string;
   displayName: string;
-  role: "owner" | "admin" | "cashier";
+  role: "owner" | "manager" | "staff" | "admin" | "cashier";
 };
 
 export type PosSnapshot = {
@@ -82,9 +106,17 @@ export type DateRange = {
 
 export type ReportSummary = {
   grossSales: number;
+  passThroughFees: number;
+  serviceRevenue: number;
   expenses: number;
   netIncome: number;
   transactions: number;
   topServices: Array<{ name: string; quantity: number; total: number }>;
   expenseSummary: Array<{ category: string; total: number }>;
+};
+
+export type PricingBreakdown = {
+  baseFee: number;
+  serviceFee: number;
+  total: number;
 };

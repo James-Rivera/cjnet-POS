@@ -34,6 +34,10 @@ create table if not exists public.services (
   option_label text not null,
   price numeric(12, 2) not null default 0 check (price >= 0),
   is_custom_price boolean not null default false,
+  group_name text,
+  requires_tracking boolean not null default false,
+  base_fee numeric(12, 2) not null default 0 check (base_fee >= 0),
+  service_fee numeric(12, 2) not null default 0 check (service_fee >= 0),
   is_active boolean not null default true,
   sort_order integer not null default 100,
   created_by uuid references auth.users(id) on delete set null,
@@ -49,6 +53,8 @@ create table if not exists public.price_settings (
   service_id text not null references public.services(id) on delete cascade,
   price numeric(12, 2) not null default 0 check (price >= 0),
   is_custom_price boolean not null default false,
+  base_fee numeric(12, 2) not null default 0 check (base_fee >= 0),
+  service_fee numeric(12, 2) not null default 0 check (service_fee >= 0),
   effective_from timestamptz not null default now(),
   created_by uuid references auth.users(id) on delete set null,
   created_at timestamptz not null default now()
@@ -202,8 +208,22 @@ set search_path = public
 as $$
 declare
   record_id text;
+  old_payload jsonb;
+  new_payload jsonb;
 begin
-  record_id := coalesce(new.id::text, old.id::text);
+  if tg_op = 'INSERT' then
+    record_id := new.id::text;
+    old_payload := null;
+    new_payload := to_jsonb(new);
+  elsif tg_op = 'UPDATE' then
+    record_id := new.id::text;
+    old_payload := to_jsonb(old);
+    new_payload := to_jsonb(new);
+  elsif tg_op = 'DELETE' then
+    record_id := old.id::text;
+    old_payload := to_jsonb(old);
+    new_payload := null;
+  end if;
 
   insert into public.audit_logs (user_id, action, table_name, record_id, old_value, new_value)
   values (
@@ -211,8 +231,8 @@ begin
     lower(tg_op),
     tg_table_name,
     record_id,
-    case when tg_op = 'DELETE' then to_jsonb(old) else to_jsonb(old) end,
-    case when tg_op = 'DELETE' then null else to_jsonb(new) end
+    old_payload,
+    new_payload
   );
 
   if tg_op = 'DELETE' then
@@ -305,6 +325,11 @@ create trigger profiles_updated_at
 before update on public.profiles
 for each row execute function public.touch_updated_at();
 
+drop trigger if exists profiles_role_status_guard on public.profiles;
+create trigger profiles_role_status_guard
+before update on public.profiles
+for each row execute function public.prevent_unauthorized_profile_updates();
+
 drop trigger if exists service_categories_updated_at on public.service_categories;
 create trigger service_categories_updated_at
 before update on public.service_categories
@@ -376,6 +401,7 @@ values
   ('xerox', 'Xerox', 10),
   ('printing', 'Printing', 20),
   ('online-services', 'Online Services', 30),
+  ('gcash', 'GCash', 35),
   ('finishing', 'Finishing', 40),
   ('custom', 'Custom', 50)
 on conflict (id) do update
@@ -384,22 +410,23 @@ set name = excluded.name,
     is_active = true,
     updated_at = now();
 
-insert into public.services (id, name, category_id, category, option_label, price, is_custom_price, sort_order)
+insert into public.services (id, name, category_id, category, option_label, price, is_custom_price, group_name, requires_tracking, base_fee, service_fee, sort_order)
 values
-  ('xerox-single', 'Xerox', 'xerox', 'Xerox', 'Single side', 3, false, 10),
-  ('xerox-back', 'Xerox', 'xerox', 'Xerox', 'Back to back', 6, false, 20),
-  ('print-bw-short', 'Black and white print', 'printing', 'Printing', 'Short', 5, false, 30),
-  ('print-bw-long', 'Black and white print', 'printing', 'Printing', 'Long', 7, false, 40),
-  ('print-bw-a4', 'Black and white print', 'printing', 'Printing', 'A4', 6, false, 50),
-  ('print-color-short', 'Colored print', 'printing', 'Printing', 'Short', 10, false, 60),
-  ('print-color-long', 'Colored print', 'printing', 'Printing', 'Long', 15, false, 70),
-  ('print-color-a4', 'Colored print', 'printing', 'Printing', 'A4', 15, false, 80),
-  ('gov-custom', 'Government service', 'online-services', 'Online Services', 'Custom price', 0, true, 90),
-  ('nbi-custom', 'NBI assistance', 'online-services', 'Online Services', 'Custom price', 0, true, 100),
-  ('police-clearance-custom', 'Police clearance', 'online-services', 'Online Services', 'Custom price', 0, true, 110),
-  ('psa-custom', 'PSA assistance', 'online-services', 'Online Services', 'Custom price', 0, true, 120),
-  ('laminating-custom', 'Laminating', 'finishing', 'Finishing', 'Custom price', 0, true, 130),
-  ('misc-custom', 'Other shop service', 'custom', 'Custom', 'Custom price', 0, true, 140)
+  ('xerox-single', 'Xerox', 'xerox', 'Xerox', 'Single side', 3, false, null, false, 0, 0, 10),
+  ('xerox-back', 'Xerox', 'xerox', 'Xerox', 'Back to back', 6, false, null, false, 0, 0, 20),
+  ('print-bw-short', 'Black and white print', 'printing', 'Printing', 'Short', 5, false, null, false, 0, 0, 30),
+  ('print-bw-long', 'Black and white print', 'printing', 'Printing', 'Long', 7, false, null, false, 0, 0, 40),
+  ('print-bw-a4', 'Black and white print', 'printing', 'Printing', 'A4', 6, false, null, false, 0, 0, 50),
+  ('print-color-short', 'Colored print', 'printing', 'Printing', 'Short', 10, false, null, false, 0, 0, 60),
+  ('print-color-long', 'Colored print', 'printing', 'Printing', 'Long', 15, false, null, false, 0, 0, 70),
+  ('print-color-a4', 'Colored print', 'printing', 'Printing', 'A4', 15, false, null, false, 0, 0, 80),
+  ('gov-custom', 'Government service', 'online-services', 'Online Services', 'Custom price', 0, true, null, false, 0, 0, 90),
+  ('nbi-custom', 'NBI clearance', 'online-services', 'Online Services', 'NBI', 250, false, 'NBI', false, 160, 90, 100),
+  ('police-clearance-custom', 'Police clearance', 'online-services', 'Online Services', 'Custom price', 0, true, null, false, 0, 0, 110),
+  ('psa-custom', 'PSA assistance', 'online-services', 'Online Services', 'Custom price', 0, true, null, false, 0, 0, 120),
+  ('gcash-cash-in', 'GCash', 'gcash', 'GCash', 'Cash in / Cash out', 0, true, 'GCash', false, 0, 0, 130),
+  ('laminating-custom', 'Laminating', 'finishing', 'Finishing', 'Custom price', 0, true, null, false, 0, 0, 140),
+  ('misc-custom', 'Other shop service', 'custom', 'Custom', 'Custom price', 0, true, null, false, 0, 0, 150)
 on conflict (id) do nothing;
 
 update public.services
@@ -407,13 +434,14 @@ set category_id = case category
   when 'Xerox' then 'xerox'
   when 'Printing' then 'printing'
   when 'Online Services' then 'online-services'
+  when 'GCash' then 'gcash'
   when 'Finishing' then 'finishing'
   else 'custom'
 end
 where category_id is null;
 
-insert into public.price_settings (service_id, price, is_custom_price)
-select services.id, services.price, services.is_custom_price
+insert into public.price_settings (service_id, price, is_custom_price, base_fee, service_fee)
+select services.id, services.price, services.is_custom_price, services.base_fee, services.service_fee
 from public.services
 where not exists (
   select 1
