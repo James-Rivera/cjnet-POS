@@ -38,6 +38,9 @@ create table if not exists public.services (
   requires_tracking boolean not null default false,
   base_fee numeric(12, 2) not null default 0 check (base_fee >= 0),
   service_fee numeric(12, 2) not null default 0 check (service_fee >= 0),
+  uses_maya boolean not null default false,
+  maya_deduction_amount numeric(12, 2) not null default 0 check (maya_deduction_amount >= 0),
+  maya_deduction_mode text not null default 'pass_through' check (maya_deduction_mode in ('fixed', 'pass_through')),
   is_active boolean not null default true,
   sort_order integer not null default 100,
   created_by uuid references auth.users(id) on delete set null,
@@ -89,6 +92,14 @@ create table if not exists public.sale_items (
   quantity integer not null check (quantity > 0),
   unit_price numeric(12, 2) not null check (unit_price >= 0),
   line_total numeric(12, 2) not null check (line_total >= 0),
+  base_fee numeric(12, 2) not null default 0 check (base_fee >= 0),
+  service_fee numeric(12, 2) not null default 0 check (service_fee >= 0),
+  pass_through_fee numeric(12, 2) not null default 0 check (pass_through_fee >= 0),
+  revenue_amount numeric(12, 2) not null default 0 check (revenue_amount >= 0),
+  pricing_breakdown jsonb,
+  bundle_id text,
+  bundle_label text,
+  is_uncategorized_custom boolean not null default false,
   created_at timestamptz not null default now()
 );
 
@@ -104,10 +115,53 @@ create table if not exists public.expenses (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.daily_closings (
+  id uuid primary key default gen_random_uuid(),
+  closing_date date not null default current_date,
+  cash_counted boolean not null default true,
+  opening_cash numeric(12, 2) not null default 0 check (opening_cash >= 0),
+  expected_cash numeric(12, 2) not null default 0 check (expected_cash >= 0),
+  actual_cash numeric(12, 2) not null default 0 check (actual_cash >= 0),
+  cash_difference numeric(12, 2) not null default 0,
+  wallet_balance numeric(12, 2) check (wallet_balance is null or wallet_balance >= 0),
+  notes text not null default '',
+  summary jsonb not null default '{}'::jsonb,
+  closed_by uuid references auth.users(id) on delete set null,
+  closed_at timestamptz not null default now(),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (closing_date, closed_by)
+);
+
 create table if not exists public.settings (
   id integer primary key default 1 check (id = 1),
   staff_expenses_enabled boolean not null default false,
   updated_at timestamptz not null default now()
+);
+
+create table if not exists public.maya_settings (
+  id integer primary key default 1 check (id = 1),
+  tracking_enabled boolean not null default false,
+  current_balance numeric(12, 2) not null default 0 check (current_balance >= 0),
+  low_balance_threshold numeric(12, 2) not null default 500 check (low_balance_threshold >= 0),
+  updated_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table if not exists public.maya_ledger_entries (
+  id uuid primary key default gen_random_uuid(),
+  entry_type text not null check (entry_type in ('sale_deduction', 'sale_reversal', 'top_up', 'adjustment')),
+  amount numeric(12, 2) not null check (amount <> 0),
+  direction text not null check (direction in ('in', 'out', 'adjustment')),
+  balance_after numeric(12, 2),
+  sale_id uuid references public.sales(id) on delete set null,
+  sale_item_id uuid references public.sale_items(id) on delete set null,
+  service_id text references public.services(id) on delete set null,
+  notes text not null default '',
+  reason text not null default '',
+  created_by uuid references auth.users(id) on delete set null,
+  created_at timestamptz not null default now()
 );
 
 create table if not exists public.audit_logs (
@@ -123,9 +177,18 @@ create table if not exists public.audit_logs (
 
 create index if not exists idx_sales_sold_at on public.sales(sold_at);
 create index if not exists idx_sale_items_sale_id on public.sale_items(sale_id);
+create index if not exists idx_sale_items_bundle_id on public.sale_items(bundle_id);
+create index if not exists idx_sale_items_uncategorized_custom on public.sale_items(is_uncategorized_custom);
 create index if not exists idx_expenses_date on public.expenses(expense_date);
+create index if not exists idx_daily_closings_date on public.daily_closings(closing_date);
+create index if not exists idx_daily_closings_closed_by on public.daily_closings(closed_by);
+create index if not exists idx_maya_ledger_created_at on public.maya_ledger_entries(created_at);
+create index if not exists idx_maya_ledger_entry_type on public.maya_ledger_entries(entry_type);
+create index if not exists idx_maya_ledger_sale_id on public.maya_ledger_entries(sale_id);
+create index if not exists idx_maya_ledger_service_id on public.maya_ledger_entries(service_id);
 create index if not exists idx_services_category on public.services(category);
 create index if not exists idx_services_category_id on public.services(category_id);
+create index if not exists idx_services_uses_maya on public.services(uses_maya);
 create index if not exists idx_price_settings_service_id on public.price_settings(service_id);
 create unique index if not exists idx_price_settings_service_id_unique on public.price_settings(service_id);
 
@@ -153,6 +216,32 @@ as $$
       and role = 'owner'
       and status = 'active'
   );
+$$;
+
+create or replace function public.is_manager()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.profiles
+    where id = auth.uid()
+      and role = 'manager'
+      and status = 'active'
+  );
+$$;
+
+create or replace function public.is_owner_or_manager()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select public.is_owner() or public.is_manager();
 $$;
 
 create or replace function public.staff_expenses_enabled()
@@ -251,7 +340,10 @@ alter table public.price_settings enable row level security;
 alter table public.sales enable row level security;
 alter table public.sale_items enable row level security;
 alter table public.expenses enable row level security;
+alter table public.daily_closings enable row level security;
 alter table public.settings enable row level security;
+alter table public.maya_settings enable row level security;
+alter table public.maya_ledger_entries enable row level security;
 alter table public.audit_logs enable row level security;
 
 drop policy if exists "Authenticated users can read profiles" on public.profiles;
@@ -263,6 +355,18 @@ drop policy if exists "Authenticated users can manage price settings" on public.
 drop policy if exists "Authenticated users can manage sales" on public.sales;
 drop policy if exists "Authenticated users can manage sale items" on public.sale_items;
 drop policy if exists "Authenticated users can manage expenses" on public.expenses;
+drop policy if exists "Daily closings are readable by owner manager or cashier" on public.daily_closings;
+drop policy if exists "Cashiers can submit own daily closing" on public.daily_closings;
+drop policy if exists "Cashiers can update own daily closing" on public.daily_closings;
+drop policy if exists "Daily closing deletes are owner only" on public.daily_closings;
+drop policy if exists "Maya settings readable by active users" on public.maya_settings;
+drop policy if exists "Maya settings owner managed" on public.maya_settings;
+drop policy if exists "Maya ledger readable by active users" on public.maya_ledger_entries;
+drop policy if exists "Maya ledger sale deductions by cashiers" on public.maya_ledger_entries;
+drop policy if exists "Maya ledger sale reversals by cashiers" on public.maya_ledger_entries;
+drop policy if exists "Maya ledger manual entries by owner manager" on public.maya_ledger_entries;
+drop policy if exists "Maya ledger updates disabled" on public.maya_ledger_entries;
+drop policy if exists "Maya ledger deletes owner only" on public.maya_ledger_entries;
 
 create policy "Profiles are readable by owner or self" on public.profiles for select to authenticated using (auth.uid() = id or public.is_owner());
 create policy "Profiles are insertable by owners" on public.profiles for insert to authenticated with check (public.is_owner());
@@ -311,7 +415,45 @@ create policy "Expenses are insertable by owner or approved staff" on public.exp
 create policy "Expenses are owner managed" on public.expenses for update to authenticated using (public.is_owner()) with check (public.is_owner());
 create policy "Expense deletes are owner only" on public.expenses for delete to authenticated using (public.is_owner());
 
+create policy "Daily closings are readable by owner manager or cashier" on public.daily_closings for select to authenticated using (public.is_owner_or_manager() or closed_by = auth.uid() or closing_date = current_date);
+create policy "Cashiers can submit own daily closing" on public.daily_closings for insert to authenticated with check (closed_by = auth.uid());
+create policy "Cashiers can update own daily closing" on public.daily_closings for update to authenticated using (public.is_owner_or_manager() or closed_by = auth.uid()) with check (public.is_owner_or_manager() or closed_by = auth.uid());
+create policy "Daily closing deletes are owner only" on public.daily_closings for delete to authenticated using (public.is_owner());
+
 create policy "Settings are owner managed" on public.settings for all to authenticated using (public.is_owner()) with check (public.is_owner());
+
+create policy "Maya settings readable by active users" on public.maya_settings for select to authenticated using (true);
+create policy "Maya settings owner managed" on public.maya_settings for all to authenticated using (public.is_owner()) with check (public.is_owner());
+
+create policy "Maya ledger readable by active users" on public.maya_ledger_entries for select to authenticated using (true);
+create policy "Maya ledger sale deductions by cashiers" on public.maya_ledger_entries for insert to authenticated with check (
+  entry_type = 'sale_deduction'
+  and direction = 'out'
+  and created_by = auth.uid()
+);
+create policy "Maya ledger sale reversals by cashiers" on public.maya_ledger_entries for insert to authenticated with check (
+  entry_type = 'sale_reversal'
+  and direction = 'in'
+  and amount > 0
+  and sale_id is not null
+  and created_by = auth.uid()
+  and exists (
+    select 1
+    from public.sales
+    where sales.id = sale_id
+      and (
+        public.is_owner_or_manager()
+        or (sales.cashier_id = auth.uid() and sales.status = 'voided' and sales.sold_at::date = current_date)
+      )
+  )
+);
+create policy "Maya ledger manual entries by owner manager" on public.maya_ledger_entries for insert to authenticated with check (
+  public.is_owner_or_manager()
+  and entry_type in ('top_up', 'adjustment')
+  and created_by = auth.uid()
+);
+create policy "Maya ledger updates disabled" on public.maya_ledger_entries for update to authenticated using (false) with check (false);
+create policy "Maya ledger deletes owner only" on public.maya_ledger_entries for delete to authenticated using (public.is_owner());
 
 create policy "Audit logs are owner readable" on public.audit_logs for select to authenticated using (public.is_owner());
 
@@ -345,9 +487,19 @@ create trigger expenses_updated_at
 before update on public.expenses
 for each row execute function public.touch_updated_at();
 
+drop trigger if exists daily_closings_updated_at on public.daily_closings;
+create trigger daily_closings_updated_at
+before update on public.daily_closings
+for each row execute function public.touch_updated_at();
+
 drop trigger if exists settings_updated_at on public.settings;
 create trigger settings_updated_at
 before update on public.settings
+for each row execute function public.touch_updated_at();
+
+drop trigger if exists maya_settings_updated_at on public.maya_settings;
+create trigger maya_settings_updated_at
+before update on public.maya_settings
 for each row execute function public.touch_updated_at();
 
 drop trigger if exists audit_service_categories on public.service_categories;
@@ -380,6 +532,11 @@ create trigger audit_expenses
 after insert or update or delete on public.expenses
 for each row execute function public.log_audit_event();
 
+drop trigger if exists audit_daily_closings on public.daily_closings;
+create trigger audit_daily_closings
+after insert or update or delete on public.daily_closings
+for each row execute function public.log_audit_event();
+
 drop trigger if exists audit_profiles on public.profiles;
 create trigger audit_profiles
 after insert or update or delete on public.profiles
@@ -390,11 +547,25 @@ create trigger audit_settings
 after insert or update or delete on public.settings
 for each row execute function public.log_audit_event();
 
+drop trigger if exists audit_maya_settings on public.maya_settings;
+create trigger audit_maya_settings
+after insert or update or delete on public.maya_settings
+for each row execute function public.log_audit_event();
+
+drop trigger if exists audit_maya_ledger_entries on public.maya_ledger_entries;
+create trigger audit_maya_ledger_entries
+after insert or update or delete on public.maya_ledger_entries
+for each row execute function public.log_audit_event();
+
 insert into public.settings (id, staff_expenses_enabled)
 values (1, false)
 on conflict (id) do update
 set staff_expenses_enabled = excluded.staff_expenses_enabled,
     updated_at = now();
+
+insert into public.maya_settings (id, tracking_enabled, current_balance, low_balance_threshold)
+values (1, false, 0, 500)
+on conflict (id) do nothing;
 
 insert into public.service_categories (id, name, sort_order)
 values

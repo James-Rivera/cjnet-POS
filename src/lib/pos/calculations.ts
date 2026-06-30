@@ -36,12 +36,9 @@ function itemPassThrough(item: Sale["items"][number]) {
   return item.passThroughFee ?? item.baseFee ?? 0;
 }
 
-function itemRevenue(item: Sale["items"][number]) {
-  const passThrough = itemPassThrough(item);
-  if (passThrough > 0) {
-    return item.revenueAmount && item.revenueAmount > 0 ? item.revenueAmount : Math.max(item.lineTotal - passThrough, 0);
-  }
-  return item.revenueAmount && item.revenueAmount > 0 ? item.revenueAmount : item.lineTotal;
+function analyticsItemName(item: Sale["items"][number]) {
+  if (item.category === "Quick Sale") return `${item.serviceName} custom/mixed`;
+  return `${item.serviceName} - ${item.optionLabel}`;
 }
 
 export function buildReport(sales: Sale[], expenses: Expense[], range: DateRange): ReportSummary {
@@ -52,17 +49,18 @@ export function buildReport(sales: Sale[], expenses: Expense[], range: DateRange
     (sum, sale) => sum + sale.items.reduce((itemSum, item) => itemSum + itemPassThrough(item), 0),
     0,
   );
-  const serviceRevenue = rangeSales.reduce(
-    (sum, sale) => sum + (sale.items.length ? sale.items.reduce((itemSum, item) => itemSum + itemRevenue(item), 0) : sale.total),
-    0,
-  );
+  const serviceRevenue = Math.max(grossSales - passThroughFees, 0);
   const expenseTotal = rangeExpenses.reduce((sum, expense) => sum + expense.amount, 0);
   const serviceMap = new Map<string, { quantity: number; total: number }>();
   const expenseMap = new Map<string, number>();
+  let uncategorizedCustom = 0;
 
   for (const sale of rangeSales) {
     for (const item of sale.items) {
-      const key = `${item.serviceName} - ${item.optionLabel}`;
+      if (item.isUncategorizedCustom) {
+        uncategorizedCustom += item.lineTotal;
+      }
+      const key = analyticsItemName(item);
       const current = serviceMap.get(key) ?? { quantity: 0, total: 0 };
       current.quantity += item.quantity;
       current.total += item.lineTotal;
@@ -88,5 +86,6 @@ export function buildReport(sales: Sale[], expenses: Expense[], range: DateRange
     expenseSummary: [...expenseMap.entries()]
       .map(([category, total]) => ({ category, total }))
       .sort((a, b) => b.total - a.total),
+    uncategorizedCustom,
   };
 }

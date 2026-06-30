@@ -9,6 +9,9 @@ export type Service = {
   requiresTracking?: boolean;
   baseFee?: number;
   serviceFee?: number;
+  usesMaya?: boolean;
+  mayaDeductionAmount?: number;
+  mayaDeductionMode?: "fixed" | "pass_through";
   sortOrder?: number;
   isActive?: boolean;
 };
@@ -27,6 +30,9 @@ export type CartItem = {
   passThroughFee?: number;
   revenueAmount?: number;
   pricingBreakdown?: PricingBreakdown | null;
+  bundleId?: string | null;
+  bundleLabel?: string | null;
+  isUncategorizedCustom?: boolean;
 };
 
 export type SaleItem = {
@@ -44,6 +50,9 @@ export type SaleItem = {
   passThroughFee?: number;
   revenueAmount?: number;
   pricingBreakdown?: PricingBreakdown | null;
+  bundleId?: string | null;
+  bundleLabel?: string | null;
+  isUncategorizedCustom?: boolean;
 };
 
 export type Sale = {
@@ -80,6 +89,37 @@ export type Expense = {
   voidReason?: string | null;
 };
 
+export type DailyClosing = {
+  id: string;
+  closingDate: string;
+  cashCounted?: boolean;
+  openingCash: number;
+  expectedCash: number;
+  actualCash: number;
+  cashDifference: number;
+  walletBalance?: number | null;
+  notes: string;
+  summary: DailyClosingSummary;
+  closedBy?: string | null;
+  closedAt: string;
+  createdAt: string;
+  updatedAt?: string | null;
+};
+
+export type DailyClosingSummary = {
+  collected: number;
+  passThrough: number;
+  earned: number;
+  expenses: number;
+  net: number;
+  transactions: number;
+  groupedSales?: number;
+  bundledSales: number;
+  uncategorizedCustom: number;
+  pendingOnline: number;
+  topServices: Array<{ name: string; quantity: number; total: number }>;
+};
+
 export type Customer = {
   id: string;
   name: string;
@@ -97,6 +137,35 @@ export type PosSnapshot = {
   services: Service[];
   sales: Sale[];
   expenses: Expense[];
+  closings: DailyClosing[];
+  mayaSettings: MayaSettings;
+  mayaLedger: MayaLedgerEntry[];
+};
+
+export type MayaSettings = {
+  id: number;
+  trackingEnabled: boolean;
+  currentBalance: number;
+  lowBalanceThreshold: number;
+  updatedBy?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+};
+
+export type MayaLedgerEntry = {
+  id: string;
+  entryType: "sale_deduction" | "sale_reversal" | "top_up" | "adjustment";
+  amount: number;
+  direction: "in" | "out" | "adjustment";
+  balanceAfter?: number | null;
+  saleId?: string | null;
+  saleItemId?: string | null;
+  serviceId?: string | null;
+  serviceName?: string | null;
+  notes: string;
+  reason: string;
+  createdBy?: string | null;
+  createdAt: string;
 };
 
 export type DateRange = {
@@ -113,6 +182,7 @@ export type ReportSummary = {
   transactions: number;
   topServices: Array<{ name: string; quantity: number; total: number }>;
   expenseSummary: Array<{ category: string; total: number }>;
+  uncategorizedCustom: number;
 };
 
 export type PricingBreakdown = {
